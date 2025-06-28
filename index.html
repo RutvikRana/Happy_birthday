@@ -295,6 +295,46 @@
             .card-image:hover {
                 opacity: 1;
             }
+
+            .url-generator {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                border-radius: 15px;
+                padding: 15px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                z-index: 10;
+            }
+
+            .url-generator button {
+                background: linear-gradient(45deg, #ff6b6b, #ff47d9);
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: transform 0.2s;
+            }
+
+            .url-generator button:hover {
+                transform: scale(1.05);
+            }
+
+            .url-output {
+                margin-top: 10px;
+                padding: 8px;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 5px;
+                font-family: monospace;
+                font-size: 12px;
+                color: #fff;
+                word-break: break-all;
+                max-width: 300px;
+                display: none;
+            }
         </style>
     </head>
     <body>
@@ -319,8 +359,84 @@
             </div>
         </div>
 
+        <!-- URL Generator for testing -->
+        <div class="url-generator">
+            <button onclick="showEncodedURL()">Generate Encoded URL</button>
+            <div class="url-output" id="urlOutput"></div>
+        </div>
+
         <script>
             const MAX_BALLOON_COUNT = 5;
+
+            // Encoding/Decoding functions
+            function encodeParams(params) {
+                try {
+                    const jsonString = JSON.stringify(params);
+                    return btoa(encodeURIComponent(jsonString));
+                } catch (e) {
+                    console.error("Error encoding parameters:", e);
+                    return null;
+                }
+            }
+
+            function decodeParams(encodedString) {
+                try {
+                    const jsonString = decodeURIComponent(atob(encodedString));
+                    return JSON.parse(jsonString);
+                } catch (e) {
+                    console.error("Error decoding parameters:", e);
+                    return null;
+                }
+            }
+
+            // Helper function to generate encoded URL
+            function generateEncodedURL(name, image, message, wish) {
+                const params = {};
+                if (name && name !== "Dear Friend") params.name = name;
+                if (image) params.image = image;
+                const defaultMessage = `On this special day, may your heart be filled with joy and
+                    your life with endless blessings. Here's to another amazing
+                    year of laughter, love, and unforgettable moments!`;
+                if (message && message !== defaultMessage) {
+                    params.message = message;
+                }
+                if (wish && wish !== "🎉 Wish you a happy birthday 🎉") params.wish = wish;
+                
+                const encoded = encodeParams(params);
+                if (encoded) {
+                    const baseURL = window.location.origin + window.location.pathname;
+                    return `${baseURL}?data=${encoded}`;
+                }
+                return null;
+            }
+
+            // Show encoded URL for testing
+            function showEncodedURL() {
+                const currentParams = getURLParams();
+                const encodedURL = generateEncodedURL(
+                    currentParams.name,
+                    currentParams.image,
+                    currentParams.message,
+                    currentParams.wish
+                );
+                
+                const output = document.getElementById('urlOutput');
+                if (encodedURL) {
+                    output.textContent = encodedURL;
+                    output.style.display = 'block';
+                    
+                    // Copy to clipboard if available
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(encodedURL).then(() => {
+                            console.log('URL copied to clipboard');
+                        });
+                    }
+                } else {
+                    output.textContent = 'Error generating encoded URL';
+                    output.style.display = 'block';
+                }
+            }
+
             function createBalloon() {
                 if (
                     document.querySelectorAll(".balloon").length >=
@@ -677,6 +793,25 @@
             // Get parameters from URL
             function getURLParams() {
                 const urlParams = new URLSearchParams(window.location.search);
+                
+                // Check for encoded parameters first
+                const encoded = urlParams.get("data");
+                if (encoded) {
+                    const decoded = decodeParams(encoded);
+                    if (decoded) {
+                        return {
+                            name: decoded.name || "Dear Friend",
+                            image: decoded.image || null,
+                            message: decoded.message || `On this special day, may your heart be filled with joy and
+                    your life with endless blessings. Here's to another amazing
+                    year of laughter, love, and unforgettable moments!`,
+                            wish: decoded.wish || "🎉 Wish you a happy birthday 🎉",
+                            showUrlGen: urlParams.get("showUrlGen") === "true"
+                        };
+                    }
+                }
+                
+                // Fallback to regular URL parameters for backward compatibility
                 return {
                     name: urlParams.get("name")
                         ? decodeURIComponent(urlParams.get("name"))
@@ -689,7 +824,8 @@
                     year of laughter, love, and unforgettable moments!`,
                     wish: urlParams.get("wish")
                         ? decodeURIComponent(urlParams.get("wish"))
-                        : "🎉 Wish you a happy birthday 🎉"
+                        : "🎉 Wish you a happy birthday 🎉",
+                    showUrlGen: urlParams.get("showUrlGen") === "true"
                 };
             }
 
@@ -713,6 +849,14 @@
                         this.style.display = "none";
                     };
                     imageContainer.appendChild(img);
+                }
+
+                // Show/hide URL generator based on toggle parameter
+                const urlGenerator = document.querySelector(".url-generator");
+                if (params.showUrlGen) {
+                    urlGenerator.style.display = "block";
+                } else {
+                    urlGenerator.style.display = "none";
                 }
             }
 
